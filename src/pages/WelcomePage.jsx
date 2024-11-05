@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Button,
   Form,
@@ -8,6 +8,9 @@ import {
   OverlayTrigger,
   Tooltip,
 } from "react-bootstrap";
+import useStore from "../context/useStore";
+import { useNavigate } from "react-router-dom";
+import API_URL from "../utils/host";
 
 function WelcomePage() {
   const [wishlist, setWishlist] = useState([]);
@@ -15,17 +18,40 @@ function WelcomePage() {
   const [error, setError] = useState("");
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [isListConfirmed, setIsListConfirmed] = useState(false);
+  const [wishlistExists, setWishlistExists] = useState(false);
+  const username = useStore((state) => state.username);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const checkWishlist = async () => {
+      try {
+        const response = await fetch(`${API_URL}/wishlist/check/${username}`);
+        if (!response.ok) {
+          throw new Error("Nepavyko patikrinti norų sąrašo");
+        }
+        const data = await response.json();
+        if (data.wishlist && data.wishlist.length > 0) {
+          setWishlistExists(true);
+          setWishlist(data.wishlist);
+        }
+      } catch (error) {
+        console.error("Klaida tikrinant norų sąrašą:", error);
+      }
+    };
+
+    checkWishlist();
+  }, [username]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
 
     if (!newItem.trim()) {
-      setError("Please enter an item");
+      setError("Įveskite dovaną");
       return;
     }
 
     if (wishlist.length >= 10) {
-      setError("Maximum 10 items allowed!");
+      setError("Leidžiama tik iki 10 dovanų!");
       return;
     }
 
@@ -42,17 +68,45 @@ function WelcomePage() {
     setShowConfirmModal(true);
   };
 
-  const finalizeList = () => {
-    setIsListConfirmed(true);
-    setShowConfirmModal(false);
+  const finalizeList = async () => {
+    try {
+      const response = await fetch(`${API_URL}/wishlist`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name: username, wishlist }),
+      });
+
+      if (response.ok) {
+        setIsListConfirmed(true);
+        setShowConfirmModal(false);
+        navigate("/game");
+      } else {
+        console.error("Nepavyko atnaujinti norų sąrašo");
+      }
+    } catch (error) {
+      console.error("Klaida:", error);
+    }
   };
+
+  if (wishlistExists) {
+    return (
+      <div className="container mt-5 text-center">
+        <h1 className="display-4 mb-4">Jūsų norų sąrašas jau sukurtas!</h1>
+        <Button variant="primary" onClick={() => navigate("/game")}>
+          Eiti į žaidimą
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="container mt-5">
       <div className="row justify-content-center">
         <div className="col-md-6">
           <h1 className="display-4 text-center mb-4">
-            🎄 My Christmas Wishlist 🎅
+            🎄 Mano Kalėdų Norų Sąrašas 🎅
           </h1>
 
           <div className="card shadow-sm">
@@ -61,14 +115,14 @@ function WelcomePage() {
                 <Form onSubmit={handleSubmit} className="mb-4">
                   <Form.Group className="mb-3">
                     <Form.Label className="fw-bold">
-                      Add Gift ({10 - wishlist.length} slots remaining)
+                      Pridėti dovaną (liko {10 - wishlist.length} vietų)
                     </Form.Label>
                     <div className="d-flex gap-2">
                       <Form.Control
                         type="text"
                         value={newItem}
                         onChange={(e) => setNewItem(e.target.value)}
-                        placeholder="Enter gift wish..."
+                        placeholder="Įveskite norimą dovaną..."
                         className="shadow-sm"
                         disabled={isListConfirmed}
                       />
@@ -78,7 +132,7 @@ function WelcomePage() {
                         className="shadow-sm"
                         disabled={wishlist.length >= 10 || isListConfirmed}
                       >
-                        Add
+                        Pridėti
                       </Button>
                     </div>
                   </Form.Group>
@@ -132,15 +186,17 @@ function WelcomePage() {
                         onClick={handleConfirmList}
                         className="shadow-sm"
                       >
-                        Confirm Wishlist
+                        Patvirtinti sąrašą
                       </Button>
                     </div>
                   )}
                 </>
               ) : (
                 <div className="text-center text-muted py-4">
-                  <p className="mb-0">Your wishlist is empty</p>
-                  <small>Add up to 10 items you want for Christmas!</small>
+                  <p className="mb-0">Jūsų norų sąrašas tuščias</p>
+                  <small>
+                    Pridėkite iki 10 dovanų, kurias norite gauti Kalėdoms!
+                  </small>
                 </div>
               )}
             </div>
@@ -148,28 +204,28 @@ function WelcomePage() {
 
           {isListConfirmed && (
             <Alert variant="success" className="mt-3">
-              🎉 Your wishlist has been confirmed!
+              🎉 Jūsų norų sąrašas patvirtintas!
             </Alert>
           )}
         </div>
       </div>
 
-      {/* Confirmation Modal */}
+      {/* Patvirtinimo modalas */}
       <Modal
         show={showConfirmModal}
         onHide={() => setShowConfirmModal(false)}
         centered
       >
         <Modal.Header closeButton>
-          <Modal.Title>Confirm Wishlist</Modal.Title>
+          <Modal.Title>Patvirtinti norų sąrašą</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <p>
-            Are you sure you want to confirm your wishlist with these{" "}
-            {wishlist.length} items?
+            Ar tikrai norite patvirtinti savo norų sąrašą su {wishlist.length}{" "}
+            elementais?
           </p>
           <Alert variant="warning">
-            ⚠️ No changes can be made after confirmation!
+            ⚠️ Po patvirtinimo sąrašas nebegalės būti keičiamas!
           </Alert>
         </Modal.Body>
         <Modal.Footer>
@@ -177,10 +233,10 @@ function WelcomePage() {
             variant="outline-secondary"
             onClick={() => setShowConfirmModal(false)}
           >
-            Keep Editing
+            Redaguoti toliau
           </Button>
           <Button variant="success" onClick={finalizeList}>
-            Yes, Confirm List
+            Taip, patvirtinti sąrašą
           </Button>
         </Modal.Footer>
       </Modal>

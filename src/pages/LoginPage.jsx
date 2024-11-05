@@ -58,7 +58,7 @@ function LoginPage() {
           <div className="d-flex justify-content-center gap-3">
             <DropdownButton
               id="dropdown-item-button"
-              title="Choose name"
+              title="Jūsų vardas"
               variant="outline-dark"
               className="shadow-sm"
             >
@@ -80,7 +80,7 @@ function LoginPage() {
               onClick={handleShow}
               className="shadow-sm"
             >
-              Confirm
+              Patvirtinti
             </Button>
           </div>
         </div>
